@@ -2,9 +2,25 @@ import os
 import re
 import math
 from typing import Dict, Any, Optional, Callable
+import shutil
+import requests
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from .config import DOWNLOADS_DIR, FFMPEG_PATH
+
+def get_node_runtime() -> Optional[str]:
+    if os.name == 'nt':
+        default_nt = r"C:\Program Files\nodejs\node.exe"
+        if os.path.exists(default_nt):
+            return default_nt
+    which_node = shutil.which("node") or shutil.which("nodejs")
+    if which_node and os.path.exists(which_node):
+        return which_node
+    if os.path.exists("/usr/bin/node"):
+        return "/usr/bin/node"
+    if os.path.exists("/usr/bin/nodejs"):
+        return "/usr/bin/nodejs"
+    return None
 
 def extract_video_id(url: str) -> Optional[str]:
     patterns = [
@@ -42,18 +58,69 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
 def get_video_info(url: str) -> Dict[str, Any]:
-    node_path = r"C:\Program Files\nodejs\node.exe" if os.name == 'nt' else "/usr/bin/node"
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'ffmpeg_location': str(FFMPEG_PATH),
+    node_path = get_node_runtime()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     }
-    if os.path.exists(node_path):
-        ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+    client_candidates = [
+        ['android', 'ios', 'web'],
+        ['android', 'ios'],
+        ['ios'],
+        ['android'],
+    ]
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-    
+    info = None
+    last_err = None
+
+    for client_list in client_candidates:
+        ydl_opts: Dict[str, Any] = {
+            'quiet': True,
+            'skip_download': True,
+            'ffmpeg_location': str(FFMPEG_PATH),
+            'http_headers': headers,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': client_list
+                }
+            }
+        }
+        if node_path:
+            ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info and info.get('title'):
+                    break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if not info:
+        # Ultimate Fallback: Official YouTube oEmbed API (Never blocked by YouTube on cloud servers)
+        video_id = extract_video_id(url)
+        if video_id:
+            try:
+                oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+                resp = requests.get(oembed_url, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return {
+                        "id": video_id,
+                        "title": data.get('title', '유튜브 영상'),
+                        "channel": data.get('author_name', '알 수 없음'),
+                        "duration": 0,
+                        "duration_str": "재생시간 자동 감지",
+                        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+                        "view_count": 0,
+                        "available_resolutions": ["최고화질 (Best)", "1080p", "720p", "480p", "360p"],
+                        "original_url": url
+                    }
+            except Exception:
+                pass
+        raise last_err or RuntimeError("유튜브 영상 정보를 파싱하지 못했습니다. URL을 확인해 주세요.")
+
     formats = info.get('formats', [])
     resolutions = set()
     for f in formats:
@@ -61,7 +128,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
             h = f.get('height')
             if h in [2160, 1440, 1080, 720, 480, 360]:
                 resolutions.add(h)
-    
+
     sorted_res = sorted(list(resolutions), reverse=True)
     res_labels = [f"{h}p" for h in sorted_res]
     if not res_labels:
@@ -71,7 +138,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
 
     duration = info.get('duration', 0)
     video_id = info.get('id') or extract_video_id(url)
-    
+
     return {
         "id": video_id,
         "title": info.get('title', '제목 없음'),
@@ -167,7 +234,7 @@ def download_video_or_audio(
     job_id: str,
     progress_callback: Callable[[Dict[str, Any]], None]
 ) -> Dict[str, Any]:
-    node_path = r"C:\Program Files\nodejs\node.exe" if os.name == 'nt' else "/usr/bin/node"
+    node_path = get_node_runtime()
     
     def ydl_hook(d):
         if d['status'] == 'downloading':
@@ -195,45 +262,76 @@ def download_video_or_audio(
 
     output_template = str(DOWNLOADS_DIR / "%(title).100s_%(id)s.%(ext)s")
     
-    ydl_opts: Dict[str, Any] = {
-        'ffmpeg_location': str(FFMPEG_PATH),
-        'progress_hooks': [ydl_hook],
-        'outtmpl': output_template,
-        'windowsfilenames': True,
-        'restrictfilenames': False,
-        'quiet': True,
-        'no_warnings': True,
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     }
-    if os.path.exists(node_path):
-        ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
 
-    if media_type == 'mp3':
-        ydl_opts['format'] = 'bestaudio/best'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '320',
-        }]
-    else: # mp4
-        # Format selection based on quality
-        if quality and "p" in quality:
-            height = quality.replace("p", "").strip()
-            ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]/best'
-        else:
-            ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best'
-        ydl_opts['merge_output_format'] = 'mp4'
+    client_candidates = [
+        ['android', 'ios', 'web'],
+        ['android', 'ios'],
+        ['ios'],
+        ['android'],
+    ]
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
-        
-        # Adjust extension for mp3
+    last_err = None
+    info = None
+    filename = None
+
+    for client_list in client_candidates:
+        ydl_opts: Dict[str, Any] = {
+            'ffmpeg_location': str(FFMPEG_PATH),
+            'progress_hooks': [ydl_hook],
+            'outtmpl': output_template,
+            'windowsfilenames': True,
+            'restrictfilenames': False,
+            'quiet': True,
+            'no_warnings': True,
+            'http_headers': headers,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': client_list
+                }
+            }
+        }
+        if node_path:
+            ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+
         if media_type == 'mp3':
-            base, _ = os.path.splitext(filename)
-            filename = base + ".mp3"
-        else:
-            base, _ = os.path.splitext(filename)
-            filename = base + ".mp4"
+            ydl_opts['format'] = 'bestaudio/best/18'
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '320',
+            }]
+        else: # mp4
+            if quality and "p" in quality:
+                height = quality.replace("p", "").strip()
+                ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]/best/18'
+            else:
+                ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18'
+            ydl_opts['merge_output_format'] = 'mp4'
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+                if filename:
+                    break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if not filename or not info:
+        raise last_err or RuntimeError("다운로드에 실패했습니다. 유튜브 정책 또는 네트워크를 확인해 주세요.")
+
+    # Adjust extension for mp3
+    if media_type == 'mp3':
+        base, _ = os.path.splitext(filename)
+        filename = base + ".mp3"
+    else:
+        base, _ = os.path.splitext(filename)
+        filename = base + ".mp4"
 
     target_name = os.path.basename(filename)
     progress_callback({

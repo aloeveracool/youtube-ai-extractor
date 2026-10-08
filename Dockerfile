@@ -1,11 +1,21 @@
 FROM python:3.11-slim
 
-# Install ffmpeg, nodejs, curl
+# Install ffmpeg, nodejs, curl, ca-certificates, unzip
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     nodejs \
     curl \
+    ca-certificates \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Ensure node symlink exists
+RUN if [ -f /usr/bin/nodejs ] && [ ! -f /usr/bin/node ]; then ln -s /usr/bin/nodejs /usr/bin/node; fi
+
+# Install Deno (official, ultra-fast JavaScript runtime for yt-dlp)
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="$DENO_INSTALL/bin:$PATH"
 
 WORKDIR /app
 
