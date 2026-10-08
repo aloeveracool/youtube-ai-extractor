@@ -9,19 +9,30 @@ import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from .config import DOWNLOADS_DIR, FFMPEG_PATH, COOKIES_PATH, has_youtube_cookies
 
-def get_node_runtime() -> Optional[str]:
+def get_js_runtime() -> Dict[str, Any]:
+    # Check for Deno (yt-dlp preferred EJS runtime)
+    which_deno = shutil.which("deno")
+    if not which_deno:
+        for p in ["/root/.deno/bin/deno", os.path.expanduser("~/.deno/bin/deno")]:
+            if os.path.exists(p):
+                which_deno = p
+                break
+    if which_deno:
+        return {'deno': {'path': which_deno}}
+
+    # Check for Node
     if os.name == 'nt':
         default_nt = r"C:\Program Files\nodejs\node.exe"
         if os.path.exists(default_nt):
-            return default_nt
+            return {'node': {'path': default_nt}}
     which_node = shutil.which("node") or shutil.which("nodejs")
     if which_node and os.path.exists(which_node):
-        return which_node
+        return {'node': {'path': which_node}}
     if os.path.exists("/usr/bin/node"):
-        return "/usr/bin/node"
+        return {'node': {'path': "/usr/bin/node"}}
     if os.path.exists("/usr/bin/nodejs"):
-        return "/usr/bin/nodejs"
-    return None
+        return {'node': {'path': "/usr/bin/nodejs"}}
+    return {}
 
 def extract_video_id(url: str) -> Optional[str]:
     patterns = [
@@ -59,15 +70,16 @@ def sanitize_filename(name: str) -> str:
     return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
 def get_video_info(url: str) -> Dict[str, Any]:
-    node_path = get_node_runtime()
+    js_cfg = get_js_runtime()
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     }
     client_candidates = [
+        None, # Default smart selection (visionos, web)
+        ['visionos'],
+        ['web'],
+        ['tv_embedded'],
         ['android'],
-        ['android', 'ios'],
-        ['ios'],
     ]
 
     info = None
@@ -79,15 +91,12 @@ def get_video_info(url: str) -> Dict[str, Any]:
             'skip_download': True,
             'ffmpeg_location': str(FFMPEG_PATH),
             'http_headers': headers,
-            'socket_timeout': 10,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': client_list
-                }
-            }
+            'socket_timeout': 15,
         }
-        if node_path:
-            ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+        if client_list:
+            ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+        if js_cfg:
+            ydl_opts['js_runtimes'] = js_cfg
         if has_youtube_cookies():
             ydl_opts['cookiefile'] = str(COOKIES_PATH)
 
@@ -237,7 +246,7 @@ def download_video_or_audio(
     job_id: str,
     progress_callback: Callable[[Dict[str, Any]], None]
 ) -> Dict[str, Any]:
-    node_path = get_node_runtime()
+    js_cfg = get_js_runtime()
     
     def ydl_hook(d):
         if d['status'] == 'downloading':
@@ -266,14 +275,15 @@ def download_video_or_audio(
     output_template = str(DOWNLOADS_DIR / "%(title).100s_%(id)s.%(ext)s")
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     }
 
     client_candidates = [
+        None, # Default smart selection (visionos, web)
+        ['visionos'],
+        ['web'],
+        ['tv_embedded'],
         ['android'],
-        ['android', 'ios'],
-        ['ios'],
     ]
 
     last_err = None
@@ -290,20 +300,17 @@ def download_video_or_audio(
             'quiet': True,
             'no_warnings': True,
             'http_headers': headers,
-            'socket_timeout': 15,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': client_list
-                }
-            }
+            'socket_timeout': 20,
         }
-        if node_path:
-            ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+        if client_list:
+            ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+        if js_cfg:
+            ydl_opts['js_runtimes'] = js_cfg
         if has_youtube_cookies():
             ydl_opts['cookiefile'] = str(COOKIES_PATH)
 
         if media_type == 'mp3':
-            ydl_opts['format'] = '18/bestaudio/best'
+            ydl_opts['format'] = 'ba/b'
             ydl_opts['postprocessors'] = [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -312,9 +319,9 @@ def download_video_or_audio(
         else: # mp4
             if quality and "p" in quality:
                 height = quality.replace("p", "").strip()
-                ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]/18/best'
+                ydl_opts['format'] = f'bv*[height<={height}]+ba/b/b[height<={height}]/bv*+ba/b/best'
             else:
-                ydl_opts['format'] = '18/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
+                ydl_opts['format'] = 'bv*+ba/b/best'
             ydl_opts['merge_output_format'] = 'mp4'
 
         try:
@@ -325,46 +332,52 @@ def download_video_or_audio(
                     break
         except Exception as e:
             last_err = e
-            # Direct Stream Fallback: If yt-dlp internal downloader fails, stream raw googlevideo bytes directly
+            # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, stream media bytes directly
             try:
                 stream_opts: Dict[str, Any] = {
                     'quiet': True,
-                    'extractor_args': {'youtube': {'player_client': client_list}},
                     'skip_download': True,
-                    'socket_timeout': 10
+                    'socket_timeout': 15
                 }
+                if client_list:
+                    stream_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
+                if js_cfg:
+                    stream_opts['js_runtimes'] = js_cfg
                 if has_youtube_cookies():
                     stream_opts['cookiefile'] = str(COOKIES_PATH)
                 with yt_dlp.YoutubeDL(stream_opts) as ydl_stream:
                     stream_info = ydl_stream.extract_info(url, download=False)
+                    valid_fmts = [
+                        f for f in stream_info.get('formats', [])
+                        if f.get('url') and not f.get('format_id', '').startswith('sb') and f.get('ext') != 'mhtml'
+                    ]
                     stream_url = None
-                    for fmt in stream_info.get('formats', []):
-                        if fmt.get('format_id') == '18' and fmt.get('url'):
-                            stream_url = fmt.get('url')
-                            break
-                    if not stream_url:
-                        for fmt in stream_info.get('formats', []):
-                            if fmt.get('url'):
-                                stream_url = fmt.get('url')
-                                break
+                    if media_type == 'mp3':
+                        # Pick audio format or any valid format
+                        audio_fmts = [f for f in valid_fmts if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
+                        if audio_fmts:
+                            stream_url = audio_fmts[-1].get('url')
+                    if not stream_url and valid_fmts:
+                        stream_url = valid_fmts[-1].get('url')
+
                     if stream_url:
                         title = stream_info.get('title', 'youtube_video')
                         vid_id = stream_info.get('id', 'video')
                         clean_title = sanitize_filename(title)[:50]
-                        temp_mp4 = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp4")
+                        temp_in = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.part")
                         
                         progress_callback({
                             "job_id": job_id,
                             "status": "downloading",
-                            "percent": 10,
+                            "percent": 15,
                             "message": "고속 다이렉트 스트림 다운로드 중..."
                         })
 
-                        with requests.get(stream_url, stream=True, timeout=15) as r:
+                        with requests.get(stream_url, stream=True, timeout=20) as r:
                             r.raise_for_status()
                             total_len = int(r.headers.get('content-length', 0))
                             dl_bytes = 0
-                            with open(temp_mp4, 'wb') as f:
+                            with open(temp_in, 'wb') as f:
                                 for chunk in r.iter_content(chunk_size=1024*256):
                                     if chunk:
                                         f.write(chunk)
@@ -380,12 +393,16 @@ def download_video_or_audio(
 
                         if media_type == 'mp3':
                             target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp3")
-                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_mp4, '-vn', '-b:a', '320k', target_file], check=True)
-                            if os.path.exists(temp_mp4):
-                                os.remove(temp_mp4)
+                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-vn', '-b:a', '320k', target_file], check=True)
+                            if os.path.exists(temp_in):
+                                os.remove(temp_in)
                             filename = target_file
                         else:
-                            filename = temp_mp4
+                            target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp4")
+                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-c', 'copy', target_file], check=True)
+                            if os.path.exists(temp_in):
+                                os.remove(temp_in)
+                            filename = target_file
                         info = stream_info
                         break
             except Exception as stream_e:
@@ -418,3 +435,4 @@ def download_video_or_audio(
         "filepath": filename,
         "title": info.get('title')
     }
+
