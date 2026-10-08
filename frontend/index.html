@@ -97,8 +97,16 @@
             type="text" 
             id="urlInput"
             placeholder="유튜브 영상 링크 붙여넣기..."
-            class="w-full bg-[#05080a] border border-[#1b2d28] focus:border-[#69DCB9] focus:ring-2 focus:ring-[#69DCB9]/20 text-slate-100 placeholder-slate-500 text-xs sm:text-base rounded-xl pl-10 sm:pl-12 pr-24 sm:pr-28 py-3 sm:py-3.5 transition outline-none shadow-inner"
+            class="w-full bg-[#05080a] border border-[#1b2d28] focus:border-[#69DCB9] focus:ring-2 focus:ring-[#69DCB9]/20 text-slate-100 placeholder-slate-500 text-xs sm:text-base rounded-xl pl-10 sm:pl-12 pr-32 sm:pr-36 py-3 sm:py-3.5 transition outline-none shadow-inner"
           />
+          <!-- Reset / Clear Button -->
+          <button 
+            id="btnClearUrl" 
+            type="button"
+            class="hidden absolute right-24 sm:right-28 text-slate-500 hover:text-[#69DCB9] p-1.5 transition rounded-lg hover:bg-[#0c1318]" 
+            title="입력 내용 지우기">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
           <button 
             id="btnFetchInfo"
             class="absolute right-1.5 sm:right-2 px-3 sm:px-4 py-2 rounded-lg bg-[#69DCB9] hover:bg-[#58cbab] text-[#070b0e] font-black text-xs sm:text-sm transition flex items-center space-x-1 sm:space-x-1.5 shadow-lg shadow-[#69DCB9]/20 disabled:opacity-50 hover:scale-[1.02] active:scale-95 whitespace-nowrap">
@@ -218,6 +226,17 @@
       <div class="flex justify-between items-center text-[10px] sm:text-[11px] text-slate-400 font-mono">
         <span id="progressPercent">0%</span>
         <span id="progressEta">남은 시간: 계산 중</span>
+      </div>
+      <!-- Completion Action Bar (Auto-shown when download completes) -->
+      <div id="progressCompletedBox" class="hidden pt-3 border-t border-[#1b2d28] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <span class="text-xs text-[#69DCB9] font-bold flex items-center space-x-1.5">
+          <i data-lucide="check-circle" class="w-4 h-4 text-[#69DCB9]"></i>
+          <span>파일 변환 완료! 아래 버튼으로 기기에 저장하세요.</span>
+        </span>
+        <a id="btnDirectDownloadLink" href="#" target="_blank" download class="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#69DCB9] hover:bg-[#58cbab] text-[#070b0e] font-black text-xs flex items-center justify-center space-x-1.5 transition shadow-lg shadow-[#69DCB9]/20 hover:scale-[1.02]">
+          <i data-lucide="download" class="w-4 h-4 text-[#070b0e]"></i>
+          <span>📱 내 기기로 다운로드 (저장)</span>
+        </a>
       </div>
     </div>
 

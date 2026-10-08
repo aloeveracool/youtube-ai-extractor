@@ -28,14 +28,33 @@ function showToast(message, isError = false) {
 function setupEventListeners() {
   // Analyze Video Button
   document.getElementById("btnFetchInfo").addEventListener("click", fetchVideoInfo);
-  document.getElementById("urlInput").addEventListener("keypress", (e) => {
+  const urlInput = document.getElementById("urlInput");
+  const btnClearUrl = document.getElementById("btnClearUrl");
+
+  urlInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") fetchVideoInfo();
+  });
+
+  urlInput.addEventListener("input", () => {
+    if (urlInput.value.trim().length > 0) {
+      btnClearUrl.classList.remove("hidden");
+    } else {
+      btnClearUrl.classList.add("hidden");
+    }
+  });
+
+  btnClearUrl.addEventListener("click", () => {
+    urlInput.value = "";
+    btnClearUrl.classList.add("hidden");
+    urlInput.focus();
+    showToast("입력창이 초기화되었습니다.");
   });
 
   // Demo Links
   document.querySelectorAll(".demo-link").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.getElementById("urlInput").value = btn.dataset.url;
+      urlInput.value = btn.dataset.url;
+      btnClearUrl.classList.remove("hidden");
       fetchVideoInfo();
     });
   });
@@ -176,8 +195,11 @@ async function startDownload(mediaType, quality) {
   const progressPercent = document.getElementById("progressPercent");
 
   progressCard.classList.remove("hidden");
+  const completedBox = document.getElementById("progressCompletedBox");
+  if (completedBox) completedBox.classList.add("hidden");
+
   progressBar.style.width = "0%";
-  progressMessage.querySelector("span").textContent = `${mediaType.toUpperCase()} 다운로드 요청 중...`;
+  progressMessage.querySelector("span").textContent = `${mediaType.toUpperCase()} 다운로드 및 인코딩 중...`;
   progressSpeed.textContent = "연결 중...";
   progressEta.textContent = "";
   progressPercent.textContent = "0%";
@@ -200,6 +222,23 @@ async function startDownload(mediaType, quality) {
   } catch (e) {
     showToast("다운로드 요청 오류 발생", true);
     progressCard.classList.add("hidden");
+  }
+}
+
+function triggerDeviceDownload(url, filename) {
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", filename);
+    a.setAttribute("target", "_blank");
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (document.body.contains(a)) document.body.removeChild(a);
+    }, 500);
+  } catch (err) {
+    console.error("Direct download error:", err);
   }
 }
 
@@ -227,10 +266,29 @@ function pollDownloadProgress(jobId) {
 
       if (job.status === "completed") {
         clearInterval(activePollingTimer);
-        showToast(`🎉 ${job.filename} 다운로드 완료!`);
-        setTimeout(() => {
-          document.getElementById("progressCard").classList.add("hidden");
-        }, 3000);
+        const filename = job.filename;
+        const downloadUrl = `/api/download-file/${encodeURIComponent(filename)}`;
+
+        progressBar.style.width = "100%";
+        progressPercent.textContent = "100%";
+        progressMessage.querySelector("span").textContent = "다운로드 준비 완료!";
+        progressSpeed.textContent = "완료";
+        progressEta.textContent = "";
+
+        // Show the direct download button for mobile & desktop
+        const completedBox = document.getElementById("progressCompletedBox");
+        const directLink = document.getElementById("btnDirectDownloadLink");
+        if (completedBox && directLink) {
+          directLink.href = downloadUrl;
+          directLink.setAttribute("download", filename);
+          completedBox.classList.remove("hidden");
+          if (window.lucide) lucide.createIcons();
+        }
+
+        // Trigger device direct download (iPhone / PC)
+        triggerDeviceDownload(downloadUrl, filename);
+
+        showToast(`🎉 ${filename} 기기 저장이 준비되었습니다!`);
         loadHistory();
       } else if (job.status === "error") {
         clearInterval(activePollingTimer);
@@ -387,8 +445,9 @@ async function loadHistory() {
             <i data-lucide="play" class="w-3.5 h-3.5 text-[#69DCB9]"></i>
             <span>재생</span>
           </button>
-          <a href="/api/stream/${encodeURIComponent(file.name)}" download class="p-1.5 rounded-lg bg-[#0c1318] hover:bg-[#111b22] text-slate-300 hover:text-[#69DCB9] transition border border-[#1b2d28]" title="다운로드">
+          <a href="/api/download-file/${encodeURIComponent(file.name)}" download="${file.name}" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-[#2D785F]/20 hover:bg-[#69DCB9] text-[#69DCB9] hover:text-black font-bold text-xs flex items-center space-x-1 transition border border-[#69DCB9]/30" title="아이폰 / 기기로 파일 저장">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span class="text-[11px]">저장</span>
           </a>
           <button class="btn-delete p-1.5 rounded-lg bg-[#0c1318] hover:bg-rose-950/40 hover:text-rose-400 text-slate-500 transition border border-[#1b2d28]" data-name="${file.name}" title="삭제">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>

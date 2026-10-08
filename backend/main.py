@@ -151,6 +151,22 @@ def api_stream_file(filename: str):
     media_type = "audio/mpeg" if filename.endswith(".mp3") else "video/mp4"
     return FileResponse(path=file_path, media_type=media_type, filename=filename)
 
+@app.get("/api/download-file/{filename}")
+def api_download_file(filename: str):
+    from urllib.parse import quote
+    file_path = DOWNLOADS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    encoded_filename = quote(filename)
+    return FileResponse(
+        path=file_path,
+        media_type="application/octet-stream",
+        filename=filename,
+        headers={
+            "Content-Disposition": f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )
+
 @app.post("/api/open-downloads")
 def api_open_downloads():
     try:
