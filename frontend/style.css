@@ -4,41 +4,41 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #070b0e;
 }
 ::-webkit-scrollbar-thumb {
-  background: #252e42;
+  background: #1b2d28;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b4661;
+  background: #2D785F;
 }
 
 /* Glassmorphism styling */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 19, 24, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(105, 220, 185, 0.15);
 }
 
-/* Animations */
-@keyframes pulseGlow {
+/* Aloia Mint Glow Animation */
+@keyframes aloiaPulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+    box-shadow: 0 0 15px rgba(105, 220, 185, 0.2);
   }
   50% {
-    box-shadow: 0 0 25px rgba(129, 140, 248, 0.4);
+    box-shadow: 0 0 25px rgba(45, 120, 95, 0.35);
   }
 }
 
-.pulse-glow {
-  animation: pulseGlow 3s infinite ease-in-out;
+.aloia-glow {
+  animation: aloiaPulse 3s infinite ease-in-out;
 }
 
 /* Markdown styling inside summary */
 .prose h1, .prose h2, .prose h3 {
-  color: #f1f5f9;
+  color: #69DCB9;
   font-weight: 700;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
@@ -46,6 +46,7 @@
 .prose p {
   margin-bottom: 0.75rem;
   line-height: 1.6;
+  color: #cbd5e1;
 }
 .prose ul, .prose ol {
   margin-left: 1.25rem;
@@ -55,5 +56,5 @@
   margin-bottom: 0.25rem;
 }
 .prose strong {
-  color: #f87171;
+  color: #69DCB9;
 }

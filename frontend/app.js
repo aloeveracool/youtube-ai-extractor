@@ -285,37 +285,37 @@ async function requestSummary() {
 
     if (data.type === "gemini") {
       summaryBadge.textContent = "Gemini 3.8 Flash";
-      summaryBadge.className = "text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      summaryBadge.className = "text-xs px-2.5 py-0.5 rounded-full bg-[#69DCB9]/20 text-[#69DCB9] border border-[#69DCB9]/30 font-semibold";
       currentSummaryText = data.markdown;
       summaryContent.innerHTML = marked.parse(data.markdown);
     } else {
-      summaryBadge.textContent = "스마트 분석 (기본)";
-      summaryBadge.className = "text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30";
+      summaryBadge.textContent = "ALOIA 스마트 분석";
+      summaryBadge.className = "text-xs px-2.5 py-0.5 rounded-full bg-[#2D785F]/30 text-[#69DCB9] border border-[#69DCB9]/30 font-semibold";
       
       const fb = data.data;
-      let textToCopy = `📌 [핵심 3줄 요약]\n` + fb.summary_3lines.join("\n") + `\n\n⏱️ [타임라인 주요 구간]\n`;
+      let textToCopy = `📌 [Aloia 핵심 3줄 요약]\n` + fb.summary_3lines.join("\n") + `\n\n⏱️ [타임라인 주요 구간]\n`;
       fb.timeline.forEach(t => textToCopy += `[${t.timestamp}] ${t.topic}\n`);
       currentSummaryText = textToCopy;
 
       let html = `
         <div class="space-y-6">
           <!-- 3줄 요약 카드 -->
-          <div class="p-5 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-3">
-            <h4 class="text-sm font-bold text-purple-300 flex items-center space-x-2">
-              <span>📌 영상 핵심 3줄 요약</span>
+          <div class="p-5 rounded-xl bg-[#070b0e] border border-[#69DCB9]/40 space-y-3 shadow-lg shadow-[#69DCB9]/5">
+            <h4 class="text-sm font-bold text-[#69DCB9] flex items-center space-x-2">
+              <span>📌 Aloia 핵심 3줄 요약</span>
             </h4>
             <div class="space-y-2 text-sm text-slate-100 font-medium">
-              ${fb.summary_3lines.map(line => `<div class="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 leading-relaxed">${line}</div>`).join('')}
+              ${fb.summary_3lines.map(line => `<div class="p-3 rounded-lg bg-[#0c1318] border border-[#1b2d28] leading-relaxed">${line}</div>`).join('')}
             </div>
           </div>
 
           <!-- 타임라인 챕터 -->
           <div class="space-y-3">
-            <h4 class="text-sm font-bold text-indigo-300">⏱️ 타임라인별 주요 구간 정리</h4>
+            <h4 class="text-sm font-bold text-white">⏱️ 타임라인별 주요 구간 정리</h4>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               ${fb.timeline.map(item => `
-                <div class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 flex items-start space-x-3">
-                  <span class="text-xs font-mono font-bold text-rose-400 bg-rose-500/10 px-2 py-1 rounded">${item.timestamp}</span>
+                <div class="p-3 rounded-lg bg-[#070b0e] border border-[#1b2d28] flex items-start space-x-3 hover:border-[#69DCB9]/30 transition">
+                  <span class="text-xs font-mono font-bold text-[#69DCB9] bg-[#2D785F]/20 px-2 py-1 rounded border border-[#69DCB9]/20">${item.timestamp}</span>
                   <span class="text-xs text-slate-300 leading-5">${item.topic}</span>
                 </div>
               `).join('')}
@@ -326,13 +326,14 @@ async function requestSummary() {
           <div class="flex items-center space-x-2 pt-2">
             <span class="text-xs text-slate-400">핵심 키워드:</span>
             <div class="flex flex-wrap gap-1.5">
-              ${fb.keywords.map(kw => `<span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">#${kw}</span>`).join('')}
+              ${fb.keywords.map(kw => `<span class="text-xs px-2.5 py-1 rounded-full bg-[#0c1816] border border-[#2D785F]/60 text-[#69DCB9] font-medium">#${kw}</span>`).join('')}
             </div>
           </div>
 
           <!-- 안내 배너 -->
-          <div class="p-3 rounded-lg bg-indigo-950/30 border border-indigo-800/40 text-xs text-indigo-300">
-            ${fb.note}
+          <div class="p-3.5 rounded-lg bg-[#070b0e] border border-[#2D785F]/40 text-xs text-[#69DCB9] flex items-center space-x-2">
+            <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
+            <span>${fb.note}</span>
           </div>
         </div>
       `;
@@ -340,7 +341,7 @@ async function requestSummary() {
     }
 
     if (window.lucide) lucide.createIcons();
-    showToast("AI 핵심 요약이 완료되었습니다!");
+    showToast("Aloia AI 영상 요약이 완료되었습니다!");
   } catch (e) {
     summaryContent.innerHTML = `<div class="text-rose-400 text-xs">요약 요청 중 오류가 발생했습니다.</div>`;
   }
@@ -366,30 +367,30 @@ async function loadHistory() {
     data.files.forEach((file) => {
       const isAudio = file.ext === "mp3" || file.ext === "m4a";
       const icon = isAudio ? "music" : "video";
-      const iconColor = isAudio ? "text-rose-400 bg-rose-500/10" : "text-indigo-400 bg-indigo-500/10";
+      const iconColor = isAudio ? "text-[#69DCB9] bg-[#2D785F]/20" : "text-emerald-400 bg-emerald-900/20";
 
       const item = document.createElement("div");
-      item.className = "p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition flex items-center justify-between";
+      item.className = "p-3 rounded-xl bg-[#070b0e] border border-[#1b2d28] hover:border-[#69DCB9]/40 transition flex items-center justify-between";
       item.innerHTML = `
         <div class="flex items-center space-x-3 overflow-hidden mr-3">
-          <div class="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center ${iconColor}">
+          <div class="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border border-[#1b2d28] ${iconColor}">
             <i data-lucide="${icon}" class="w-4 h-4"></i>
           </div>
           <div class="truncate">
             <p class="text-xs font-semibold text-slate-200 truncate">${file.name}</p>
-            <p class="text-[11px] text-slate-500 uppercase font-mono">${file.ext} · ${file.size_mb} MB</p>
+            <p class="text-[11px] text-[#69DCB9]/80 uppercase font-mono">${file.ext} · ${file.size_mb} MB</p>
           </div>
         </div>
 
         <div class="flex items-center space-x-1.5 flex-shrink-0">
-          <button class="btn-play px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center space-x-1 transition" data-name="${file.name}" data-ext="${file.ext}">
-            <i data-lucide="play" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <button class="btn-play px-2.5 py-1.5 rounded-lg bg-[#0c1318] hover:bg-[#111b22] text-[#69DCB9] hover:text-white text-xs flex items-center space-x-1 transition border border-[#1b2d28] hover:border-[#69DCB9]" data-name="${file.name}" data-ext="${file.ext}">
+            <i data-lucide="play" class="w-3.5 h-3.5 text-[#69DCB9]"></i>
             <span>재생</span>
           </button>
-          <a href="/api/stream/${encodeURIComponent(file.name)}" download class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="다운로드">
+          <a href="/api/stream/${encodeURIComponent(file.name)}" download class="p-1.5 rounded-lg bg-[#0c1318] hover:bg-[#111b22] text-slate-300 hover:text-[#69DCB9] transition border border-[#1b2d28]" title="다운로드">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
           </a>
-          <button class="btn-delete p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/40 hover:text-rose-400 text-slate-400 transition" data-name="${file.name}" title="삭제">
+          <button class="btn-delete p-1.5 rounded-lg bg-[#0c1318] hover:bg-rose-950/40 hover:text-rose-400 text-slate-500 transition border border-[#1b2d28]" data-name="${file.name}" title="삭제">
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
         </div>

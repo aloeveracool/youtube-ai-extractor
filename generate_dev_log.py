@@ -135,6 +135,32 @@ def create_dev_log():
                      "2. [CMD 창 제거] pythonw.exe와 VBScript 무창 런처(시작하기.vbs)를 구축하여 검은색 CMD 콘솔 화면이 전혀 뜨지 않도록 완전 은닉 실행 처리 (종료하기.bat 추가 제공).\n"
                      "3. [다른 PC 접속] 서버 바인딩을 0.0.0.0:8500으로 확장하여 같은 공유기 환경의 다른 PC에서 브라우저 주소(http://192.168.0.15:8500)만으로 설치 없이 즉시 사용 가능하도록 구현.\n"
                      "4. [아이폰 모바일 연동] Tailwind CSS 모바일 반응형 최적화 및 로컬 네트워크 스트리밍을 통해 아이폰 크롬/사파리에서 요약 확인 및 파일 다운로드 완벽 지원."
+        },
+        {
+            "step": "단계 6: GitHub 원격 저장소 및 Render 24시간 클라우드 자동 배포 체계 구축",
+            "req": "https://github.com/aloeveracool/youtube-ai-extractor\nhttps://dashboard.render.com/web/srv-db3ird3tqb8s73e6he90",
+            "action": "사용자의 GitHub 저장소와 Render 클라우드 서비스를 유기적으로 연결:\n"
+                     "1. [저장소 연동] git remote origin 설정(aloeveracool/youtube-ai-extractor) 및 기본 브랜치(main) 정렬.\n"
+                     "2. [클라우드 빌드 환경] Linux/Docker 환경에서 FFmpeg 7.1, Node.js, Python 3.11, FastAPI가 자동 빌드되도록 Dockerfile 및 render.yaml 구성 완료.\n"
+                     "3. [원클릭 푸시 배치] 사용자 PC 환경에서 GitHub 브라우저 인증을 가장 직관적으로 처리할 수 있도록 '2. 깃허브로 업로드하기.bat' 및 바탕화면 바로가기 제공.\n"
+                     "4. [24시간 무중단 서비스] GitHub 푸시 완료 시 Render 서비스(srv-db3ird3tqb8s73e6he90)에서 자동 빌드가 트리거되어 내 컴퓨터가 꺼져도 아이폰에서 전용 도메인으로 24시간 접속 가능한 인프라 완비."
+        },
+        {
+            "step": "단계 7: GitHub Personal Access Token을 통한 원격 푸시 및 클라우드 빌드 가동",
+            "req": "GitHub Personal Access Token (인증 토큰 전달)",
+            "action": "사용자가 발급한 안전한 Personal Access Token을 활용하여 클라우드 연동 최종 마무리:\n"
+                     "1. [코드 푸시 완료] 원격 저장소(aloeveracool/youtube-ai-extractor:main)로 모든 백엔드, 프론트엔드, Dockerfile 일괄 업로드 성공.\n"
+                     "2. [토큰 보안 조치] 푸시 완료 직후 로컬 Git 설정에서 토큰 정보를 즉각 제거하여 보안성 유지.\n"
+                     "3. [Render 자동 배포 진입] Render 대시보드(srv-db3ird3tqb8s73e6he90)에서 커밋을 감지하여 24시간 무중단 Docker 컨테이너 빌드 및 최종 서비스 가동 시작."
+        },
+        {
+            "step": "단계 8: Aloia CI 아이덴티티 적용 및 민트 & 블랙 테마 전면 리디자인",
+            "req": "제목애 Alola's를 붙이자,여기있는 .ci 적용하고 페이지 화면에서 버튼을 민트색과 검정색 계열로 다시 재구성해줘 멋지게 그 후에 다시 재 업로드해서 적용해줘",
+            "action": "사용자가 제공한 기업 CI 가이드(Mint Green #69DCB9, Mint Teal #2D785F)를 바탕으로 프리미엄 민트 & 블랙 리브랜딩 단행:\n"
+                     "1. [CI 로고 및 브랜드 적용] 상단 브랜드명을 'ALOIA\\'S YouTube AI Extractor'로 개편하고, 공식 A 심볼 엠블럼(frontend/assets/aloia_icon.png) 투명 아이콘 적용.\n"
+                     "2. [민트 & 블랙 버튼 및 UI 재구성] 영상 분석 버튼, MP3 추출 카드, MP4 다운로드 패널, AI 3줄 요약 결과창 및 프로그레스 바를 고급스러운 옵시디언 블랙과 민트 그린(#69DCB9) 네온 글로우 스타일로 전면 교체.\n"
+                     "3. [스크린샷 5종 최신화] 변경된 CI 테마 화면을 Playwright 자동화 엔진으로 다각도 재캡처 완료.\n"
+                     "4. [클라우드 재배포] GitHub main 브랜치로 최신 커밋을 전송하여 Render 클라우드 서비스에 24시간 실시간 배포 완료."
         }
     ]
 
