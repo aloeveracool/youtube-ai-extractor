@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: youtube-ai-extractor
+    env: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/settings
+    envVars:
+      - key: PORT
+        value: 8500
+      - key: GEMINI_API_KEY
+        sync: false
