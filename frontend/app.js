@@ -105,6 +105,8 @@ function setupEventListeners() {
   const settingsModal = document.getElementById("settingsModal");
   document.getElementById("btnOpenSettings").addEventListener("click", () => {
     settingsModal.classList.remove("hidden");
+    checkApiSettings();
+    loadCookiesStatus();
   });
   document.getElementById("btnCloseSettings").addEventListener("click", () => {
     settingsModal.classList.add("hidden");
@@ -113,6 +115,18 @@ function setupEventListeners() {
     settingsModal.classList.add("hidden");
   });
   document.getElementById("btnSaveSettings").addEventListener("click", saveApiSettings);
+
+  // Cookie settings event listeners
+  const cookieFileInput = document.getElementById("cookieFileInput");
+  const btnChooseCookieFile = document.getElementById("btnChooseCookieFile");
+  if (btnChooseCookieFile && cookieFileInput) {
+    btnChooseCookieFile.addEventListener("click", () => cookieFileInput.click());
+    cookieFileInput.addEventListener("change", handleCookieFileSelect);
+  }
+  const btnSaveCookies = document.getElementById("btnSaveCookies");
+  if (btnSaveCookies) btnSaveCookies.addEventListener("click", saveCookies);
+  const btnDeleteCookies = document.getElementById("btnDeleteCookies");
+  if (btnDeleteCookies) btnDeleteCookies.addEventListener("click", deleteCookies);
 
   // Player Modal
   const playerModal = document.getElementById("playerModal");
@@ -565,3 +579,77 @@ async function saveApiSettings() {
     showToast("저장 중 오류가 발생했습니다.", true);
   }
 }
+
+// Cookies Management
+async function loadCookiesStatus() {
+  const badge = document.getElementById("cookieStatusBadge");
+  if (!badge) return;
+  try {
+    const res = await fetch("/api/cookies-status");
+    const data = await res.json();
+    if (data.configured) {
+      badge.textContent = `🟢 등록됨 (${(data.size_bytes / 1024).toFixed(1)} KB)`;
+      badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-[#69DCB9]/20 text-[#69DCB9] border border-[#69DCB9]/40";
+    } else {
+      badge.textContent = "⚪ 미등록";
+      badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300";
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function handleCookieFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const content = e.target.result;
+    document.getElementById("cookieTextInput").value = content;
+    showToast(`"${file.name}" 파일 내용을 불러왔습니다. [저장]을 눌러 적용하세요.`);
+  };
+  reader.readAsText(file);
+}
+
+async function saveCookies() {
+  const text = document.getElementById("cookieTextInput").value.trim();
+  if (!text) {
+    showToast("cookies.txt 내용을 입력하거나 파일을 선택해 주세요.", true);
+    return;
+  }
+  try {
+    const res = await fetch("/api/save-cookies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cookies: text }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById("cookieTextInput").value = "";
+      loadCookiesStatus();
+    } else {
+      showToast("저장 실패: " + data.error, true);
+    }
+  } catch (e) {
+    showToast("쿠키 저장 중 오류가 발생했습니다.", true);
+  }
+}
+
+async function deleteCookies() {
+  if (!confirm("등록된 유튜브 인증 쿠키를 삭제하시겠습니까?")) return;
+  try {
+    const res = await fetch("/api/delete-cookies", { method: "POST" });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message);
+      document.getElementById("cookieTextInput").value = "";
+      loadCookiesStatus();
+    } else {
+      showToast("삭제 실패: " + data.error, true);
+    }
+  } catch (e) {
+    showToast("오류가 발생했습니다.", true);
+  }
+}
+

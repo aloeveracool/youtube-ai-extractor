@@ -7,7 +7,7 @@ import requests
 import subprocess
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
-from .config import DOWNLOADS_DIR, FFMPEG_PATH
+from .config import DOWNLOADS_DIR, FFMPEG_PATH, COOKIES_PATH, has_youtube_cookies
 
 def get_node_runtime() -> Optional[str]:
     if os.name == 'nt':
@@ -88,6 +88,8 @@ def get_video_info(url: str) -> Dict[str, Any]:
         }
         if node_path:
             ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+        if has_youtube_cookies():
+            ydl_opts['cookiefile'] = str(COOKIES_PATH)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -297,6 +299,8 @@ def download_video_or_audio(
         }
         if node_path:
             ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
+        if has_youtube_cookies():
+            ydl_opts['cookiefile'] = str(COOKIES_PATH)
 
         if media_type == 'mp3':
             ydl_opts['format'] = '18/bestaudio/best'
@@ -323,12 +327,15 @@ def download_video_or_audio(
             last_err = e
             # Direct Stream Fallback: If yt-dlp internal downloader fails, stream raw googlevideo bytes directly
             try:
-                with yt_dlp.YoutubeDL({
+                stream_opts: Dict[str, Any] = {
                     'quiet': True,
                     'extractor_args': {'youtube': {'player_client': client_list}},
                     'skip_download': True,
                     'socket_timeout': 10
-                }) as ydl_stream:
+                }
+                if has_youtube_cookies():
+                    stream_opts['cookiefile'] = str(COOKIES_PATH)
+                with yt_dlp.YoutubeDL(stream_opts) as ydl_stream:
                     stream_info = ydl_stream.extract_info(url, download=False)
                     stream_url = None
                     for fmt in stream_info.get('formats', []):

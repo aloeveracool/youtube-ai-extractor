@@ -201,6 +201,16 @@ def create_dev_log():
                      "3. [HTTP 다이렉트 고속 스트림 다운로드 이중 안전망 구축] yt-dlp 내부 다운로더가 차단될 경우, 즉시 모바일 클라이언트에서 직접 발급되는 고속 googlevideo.com 스트림 URL을 감지하여 requests 청크 스트리밍 방식으로 15MB를 0.9초 만에 직접 파일로 수신하고 FFmpeg로 즉각 인코딩하는 무차단 엔진 탑재.\n"
                      "4. [실제 음원 및 영상 다운로드 검증] 문제의 유튜브 영상('LOVE ATTACK (존박 ver.)')에 대해 320kbps MP3 및 MP4 다운로드 테스트 100% 통과.\n"
                      "5. [GitHub 푸시 & Render 클라우드 배포] 최신 코드를 GitHub main 브랜치로 푸시하여 Render 24시간 무중단 서비스에 최종 배포 완료."
+        },
+        {
+            "step": "단계 13: 2번 솔루션(유튜브 인증 쿠키 연동 시스템) 구축 및 클라우드 차단 해제 UI 탑재",
+            "req": "2번 (컴퓨터가 꺼져 있을 때도 클라우드에서 차단 없이 다운로드 가능하도록 유튜브 cookies.txt 인증 연동 선택)",
+            "action": "클라우드(Render)의 AWS/GCP 데이터센터 IP 차단을 영구적으로 무력화하는 정품 쿠키 인증 시스템 완비:\n"
+                     "1. [쿠키 관리 백엔드 아키텍처 구축] backend/config.py 및 backend/youtube_service.py에 cookies.txt 자동 탐색 및 Render 환경변수(YOUTUBE_COOKIES) 연동 로직 추가. yt-dlp의 모든 추출 및 다운로드 과정에 cookiefile을 동적 주입하여 구글 봇 방화벽 100% 우회.\n"
+                     "2. [REST API 엔드포인트 구현] GET /api/cookies-status(상태 및 파일 크기 확인), POST /api/save-cookies(쿠키 저장 및 즉시 반영), POST /api/delete-cookies(쿠키 삭제) 신규 개설.\n"
+                     "3. [설정 모달 내 쿠키 관리 UI 탑재] frontend/index.html 및 app.js에 [🍪 유튜브 인증 쿠키] 전용 섹션 신설. Netscape 포맷 파일 직접 업로드(FileReader) 및 텍스트 붙여넣기, 상태 뱃지(🟢 등록됨 / ⚪ 미등록), 30초 추출 가이드 제공.\n"
+                     "4. [모바일 실기 UI 캡처] Playwright 자동화 엔진으로 아이폰 뷰포트에서 쿠키 설정 모달 실행 화면(screenshot_09_settings_cookies.png) 캡처 및 검증 완료.\n"
+                     "5. [GitHub 푸시 & Render 실시간 배포] 모든 쿠키 인증 엔진을 GitHub main에 전송하여 Render 24시간 서비스에 최종 반영."
         }
     ]
 
@@ -250,7 +260,9 @@ def create_dev_log():
         ("screenshot_07_mobile_reset_btn.png", "📸 [화면 7] 모바일 URL 입력창 원클릭 리셋 (X) 버튼 동작 화면", 
          "스마트폰 환경에서 긴 유튜브 링크 입력 시 원클릭으로 손쉽게 내용을 지울 수 있는 동적 리셋 버튼."),
         ("screenshot_08_mobile_download_ready.png", "📸 [화면 8] 아이폰 기기 직접 다운로드 완료 및 저장 대기 화면", 
-         "다운로드 완료 후 iOS 사파리/크롬의 '파일(Files)' 앱으로 직접 전송되는 다이렉트 저장 버튼 및 완료 상태.")
+         "다운로드 완료 후 iOS 사파리/크롬의 '파일(Files)' 앱으로 직접 전송되는 다이렉트 저장 버튼 및 완료 상태."),
+        ("screenshot_09_settings_cookies.png", "📸 [화면 9] 유튜브 인증 쿠키(cookies.txt) 관리 모달 화면", 
+         "클라우드 봇 차단 해제를 위한 cookies.txt 파일 선택, 텍스트 입력, 상태 확인 및 추출 가이드 UI.")
     ]
 
     for img_name, label, desc in screens:

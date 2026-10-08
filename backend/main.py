@@ -9,7 +9,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .config import DOWNLOADS_DIR, BASE_DIR, get_gemini_api_key, save_gemini_api_key
+from .config import (
+    DOWNLOADS_DIR, BASE_DIR, get_gemini_api_key, save_gemini_api_key,
+    has_youtube_cookies, save_youtube_cookies, delete_youtube_cookies, COOKIES_PATH
+)
 from .youtube_service import get_video_info, fetch_transcript, download_video_or_audio
 from .ai_service import summarize_with_gemini, local_fallback_summary
 
@@ -29,6 +32,9 @@ class DownloadRequest(BaseModel):
 class SummarizeRequest(BaseModel):
     url: str
     video_title: Optional[str] = ""
+
+class CookiesRequest(BaseModel):
+    cookies: str
 
 class ApiKeyRequest(BaseModel):
     api_key: str
@@ -200,7 +206,31 @@ def api_save_settings(req: ApiKeyRequest):
     save_gemini_api_key(req.api_key.strip())
     return {"success": True, "message": "API 키가 안전하게 저장되었습니다."}
 
+@app.get("/api/cookies-status")
+def api_cookies_status():
+    configured = has_youtube_cookies()
+    size = COOKIES_PATH.stat().st_size if configured else 0
+    return {
+        "success": True,
+        "configured": configured,
+        "size_bytes": size
+    }
+
+@app.post("/api/save-cookies")
+def api_save_cookies(req: CookiesRequest):
+    content = req.cookies.strip()
+    if not content or len(content) < 10:
+        return {"success": False, "error": "유효한 cookies.txt 내용이 아닙니다. 최소 10자 이상이어야 합니다."}
+    save_youtube_cookies(content)
+    return {"success": True, "message": "유튜브 인증 쿠키가 성공적으로 저장되었습니다! 이제 클라우드에서도 차단 없이 다운로드됩니다."}
+
+@app.post("/api/delete-cookies")
+def api_delete_cookies():
+    delete_youtube_cookies()
+    return {"success": True, "message": "유튜브 인증 쿠키가 삭제되었습니다."}
+
 # Mount Frontend static files
 FRONTEND_DIR = BASE_DIR / "frontend"
 FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
+
