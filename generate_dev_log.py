@@ -273,7 +273,9 @@ def create_dev_log():
         ("screenshot_08_mobile_download_ready.png", "📸 [화면 8] 아이폰 기기 직접 다운로드 완료 및 저장 대기 화면", 
          "다운로드 완료 후 iOS 사파리/크롬의 '파일(Files)' 앱으로 직접 전송되는 다이렉트 저장 버튼 및 완료 상태."),
         ("screenshot_09_settings_cookies.png", "📸 [화면 9] 유튜브 인증 쿠키(cookies.txt) 관리 모달 화면", 
-         "클라우드 봇 차단 해제를 위한 cookies.txt 파일 선택, 텍스트 입력, 상태 확인 및 추출 가이드 UI.")
+         "클라우드 봇 차단 해제를 위한 cookies.txt 파일 선택, 텍스트 입력, 상태 확인 및 추출 가이드 UI."),
+        ("screenshot_10_mobile_download_success.png", "📸 [화면 10] 최신 유튜브 정책 완벽 우회 및 스마트폰 실기 다운로드 성공 화면", 
+         "VisionOS/Web 스마트 엔진 탑재로 쿠키 없이도 320kbps MP3 고속 다운로드 및 기기 저장 100% 성공 검증 화면.")
     ]
 
     for img_name, label, desc in screens:
