@@ -4,6 +4,7 @@ import math
 from typing import Dict, Any, Optional, Callable
 import shutil
 import requests
+import subprocess
 import yt_dlp
 from youtube_transcript_api import YouTubeTranscriptApi
 from .config import DOWNLOADS_DIR, FFMPEG_PATH
@@ -64,10 +65,9 @@ def get_video_info(url: str) -> Dict[str, Any]:
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
     }
     client_candidates = [
-        ['android', 'ios', 'web'],
+        ['android'],
         ['android', 'ios'],
         ['ios'],
-        ['android'],
     ]
 
     info = None
@@ -79,6 +79,7 @@ def get_video_info(url: str) -> Dict[str, Any]:
             'skip_download': True,
             'ffmpeg_location': str(FFMPEG_PATH),
             'http_headers': headers,
+            'socket_timeout': 10,
             'extractor_args': {
                 'youtube': {
                     'player_client': client_list
@@ -268,10 +269,9 @@ def download_video_or_audio(
     }
 
     client_candidates = [
-        ['android', 'ios', 'web'],
+        ['android'],
         ['android', 'ios'],
         ['ios'],
-        ['android'],
     ]
 
     last_err = None
@@ -288,6 +288,7 @@ def download_video_or_audio(
             'quiet': True,
             'no_warnings': True,
             'http_headers': headers,
+            'socket_timeout': 15,
             'extractor_args': {
                 'youtube': {
                     'player_client': client_list
@@ -298,7 +299,7 @@ def download_video_or_audio(
             ydl_opts['js_runtimes'] = {'node': {'path': node_path}}
 
         if media_type == 'mp3':
-            ydl_opts['format'] = 'bestaudio/best/18'
+            ydl_opts['format'] = '18/bestaudio/best'
             ydl_opts['postprocessors'] = [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -307,9 +308,9 @@ def download_video_or_audio(
         else: # mp4
             if quality and "p" in quality:
                 height = quality.replace("p", "").strip()
-                ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]/best/18'
+                ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]/18/best'
             else:
-                ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best/18'
+                ydl_opts['format'] = '18/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
             ydl_opts['merge_output_format'] = 'mp4'
 
         try:
@@ -320,6 +321,68 @@ def download_video_or_audio(
                     break
         except Exception as e:
             last_err = e
+            # Direct Stream Fallback: If yt-dlp internal downloader fails, stream raw googlevideo bytes directly
+            try:
+                with yt_dlp.YoutubeDL({
+                    'quiet': True,
+                    'extractor_args': {'youtube': {'player_client': client_list}},
+                    'skip_download': True,
+                    'socket_timeout': 10
+                }) as ydl_stream:
+                    stream_info = ydl_stream.extract_info(url, download=False)
+                    stream_url = None
+                    for fmt in stream_info.get('formats', []):
+                        if fmt.get('format_id') == '18' and fmt.get('url'):
+                            stream_url = fmt.get('url')
+                            break
+                    if not stream_url:
+                        for fmt in stream_info.get('formats', []):
+                            if fmt.get('url'):
+                                stream_url = fmt.get('url')
+                                break
+                    if stream_url:
+                        title = stream_info.get('title', 'youtube_video')
+                        vid_id = stream_info.get('id', 'video')
+                        clean_title = sanitize_filename(title)[:50]
+                        temp_mp4 = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp4")
+                        
+                        progress_callback({
+                            "job_id": job_id,
+                            "status": "downloading",
+                            "percent": 10,
+                            "message": "고속 다이렉트 스트림 다운로드 중..."
+                        })
+
+                        with requests.get(stream_url, stream=True, timeout=15) as r:
+                            r.raise_for_status()
+                            total_len = int(r.headers.get('content-length', 0))
+                            dl_bytes = 0
+                            with open(temp_mp4, 'wb') as f:
+                                for chunk in r.iter_content(chunk_size=1024*256):
+                                    if chunk:
+                                        f.write(chunk)
+                                        dl_bytes += len(chunk)
+                                        if total_len > 0:
+                                            p = round(dl_bytes / total_len * 90, 1)
+                                            progress_callback({
+                                                "job_id": job_id,
+                                                "status": "downloading",
+                                                "percent": p,
+                                                "message": f"스트림 다운로드 중... ({p}%)"
+                                            })
+
+                        if media_type == 'mp3':
+                            target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp3")
+                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_mp4, '-vn', '-b:a', '320k', target_file], check=True)
+                            if os.path.exists(temp_mp4):
+                                os.remove(temp_mp4)
+                            filename = target_file
+                        else:
+                            filename = temp_mp4
+                        info = stream_info
+                        break
+            except Exception as stream_e:
+                last_err = stream_e
             continue
 
     if not filename or not info:
