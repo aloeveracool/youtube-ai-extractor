@@ -8,14 +8,15 @@ IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 def run():
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
+        
+        # 1. Desktop Context
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
 
-        print("[1] Opening Main Dashboard...")
+        print("[1] Opening Main Dashboard (Desktop)...")
         page.goto("http://localhost:8500", wait_until="networkidle")
         time.sleep(1)
         page.screenshot(path=str(IMAGES_DIR / "screenshot_01_main_dashboard.png"))
-        print("  -> Saved screenshot_01_main_dashboard.png")
 
         print("[2] Analyzing Video...")
         page.fill("#urlInput", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -23,21 +24,18 @@ def run():
         page.wait_for_selector("#videoCard:not(.hidden)", timeout=15000)
         time.sleep(1.5)
         page.screenshot(path=str(IMAGES_DIR / "screenshot_02_video_analyzed.png"))
-        print("  -> Saved screenshot_02_video_analyzed.png")
 
         print("[3] Requesting AI Summary...")
         page.click("#btnSummarize")
         page.wait_for_selector("#summarySection:not(.hidden)", timeout=15000)
         time.sleep(2.5)
         page.screenshot(path=str(IMAGES_DIR / "screenshot_03_ai_summary.png"))
-        print("  -> Saved screenshot_03_ai_summary.png")
 
         print("[4] Opening Settings Modal...")
         page.click("#btnOpenSettings")
         page.wait_for_selector("#settingsModal:not(.hidden)", timeout=5000)
         time.sleep(1)
         page.screenshot(path=str(IMAGES_DIR / "screenshot_04_settings_modal.png"))
-        print("  -> Saved screenshot_04_settings_modal.png")
 
         print("[5] Closing Settings & Opening Media Player...")
         page.click("#btnCloseSettings")
@@ -49,7 +47,22 @@ def run():
             page.wait_for_selector("#playerModal:not(.hidden)", timeout=5000)
             time.sleep(1)
             page.screenshot(path=str(IMAGES_DIR / "screenshot_05_media_player.png"))
-            print("  -> Saved screenshot_05_media_player.png")
+
+        context.close()
+
+        # 2. iPhone Mobile Context (390 x 844)
+        print("[6] Opening iPhone Mobile View (390x844)...")
+        m_context = browser.new_context(
+            viewport={"width": 390, "height": 844},
+            is_mobile=True,
+            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        )
+        m_page = m_context.new_page()
+        m_page.goto("http://localhost:8500", wait_until="networkidle")
+        time.sleep(1)
+        m_page.screenshot(path=str(IMAGES_DIR / "screenshot_06_mobile_iphone.png"))
+        print("  -> Saved screenshot_06_mobile_iphone.png")
+        m_context.close()
 
         browser.close()
         print("All screenshots captured successfully!")
