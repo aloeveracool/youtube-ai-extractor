@@ -94,11 +94,6 @@ def get_video_info(url: str) -> Dict[str, Any]:
             'socket_timeout': 15,
         }
         
-        try:
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-            ydl_opts['impersonate'] = ImpersonateTarget(client='chrome', os='windows')
-        except ImportError:
-            pass
         if client_list:
             ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
         if js_cfg:
@@ -342,11 +337,6 @@ def download_video_or_audio(
             'socket_timeout': 20,
         }
         
-        try:
-            from yt_dlp.networking.impersonate import ImpersonateTarget
-            ydl_opts['impersonate'] = ImpersonateTarget(client='chrome', os='windows')
-        except ImportError:
-            pass
         if client_list:
             ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
         if js_cfg:
