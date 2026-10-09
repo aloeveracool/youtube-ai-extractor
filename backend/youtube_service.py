@@ -92,8 +92,13 @@ def get_video_info(url: str) -> Dict[str, Any]:
             'ffmpeg_location': str(FFMPEG_PATH),
             'http_headers': headers,
             'socket_timeout': 15,
-            'impersonate': 'Chrome-131',
         }
+        
+        try:
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+            ydl_opts['impersonate'] = ImpersonateTarget(client='chrome', os='windows')
+        except ImportError:
+            pass
         if client_list:
             ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
         if js_cfg:
@@ -335,8 +340,13 @@ def download_video_or_audio(
             'no_warnings': True,
             'http_headers': headers,
             'socket_timeout': 20,
-            'impersonate': 'Chrome-131',
         }
+        
+        try:
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+            ydl_opts['impersonate'] = ImpersonateTarget(client='chrome', os='windows')
+        except ImportError:
+            pass
         if client_list:
             ydl_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
         if js_cfg:
