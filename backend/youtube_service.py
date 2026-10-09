@@ -111,10 +111,10 @@ def get_video_info(url: str) -> Dict[str, Any]:
             continue
 
     if not info:
-        # Fallback 1: Try pytubefix (MWEB client)
+        # Fallback 1: Try pytubefix (ANDROID client)
         try:
             from pytubefix import YouTube
-            yt = YouTube(url, client='MWEB')
+            yt = YouTube(url, client='ANDROID')
             video_id = yt.video_id
             resolutions = set()
             for s in yt.streams.filter(file_extension='mp4', progressive=True):
@@ -367,7 +367,7 @@ def download_video_or_audio(
                     break
         except Exception as e:
             last_err = e
-            # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, try pytubefix (MWEB client)
+            # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, try pytubefix (ANDROID client)
             try:
                 from pytubefix import YouTube
                 
@@ -383,7 +383,7 @@ def download_video_or_audio(
                             "message": f"대체 엔진 스트림 다운로드 중... ({p}%)"
                         })
                 
-                yt = YouTube(url, client='MWEB', on_progress_callback=on_progress)
+                yt = YouTube(url, client='ANDROID', on_progress_callback=on_progress)
                 
                 progress_callback({
                     "job_id": job_id,
