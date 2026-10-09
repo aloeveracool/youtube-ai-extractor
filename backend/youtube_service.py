@@ -110,6 +110,39 @@ def get_video_info(url: str) -> Dict[str, Any]:
             continue
 
     if not info:
+        # Fallback 1: Try pytubefix (MWEB client)
+        try:
+            from pytubefix import YouTube
+            yt = YouTube(url, client='MWEB')
+            video_id = yt.video_id
+            resolutions = set()
+            for s in yt.streams.filter(file_extension='mp4', progressive=True):
+                if s.resolution:
+                    h = int(s.resolution.replace('p', ''))
+                    resolutions.add(h)
+            
+            sorted_res = sorted(list(resolutions), reverse=True)
+            res_labels = [f"{h}p" for h in sorted_res]
+            if not res_labels:
+                res_labels = ["최고화질 (Best)"]
+            else:
+                res_labels.insert(0, "최고화질 (Best)")
+                
+            return {
+                "id": video_id,
+                "title": yt.title or '제목 없음',
+                "channel": yt.author or '알 수 없음',
+                "duration": yt.length or 0,
+                "duration_str": format_duration(yt.length or 0),
+                "thumbnail": yt.thumbnail_url or f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+                "view_count": yt.views or 0,
+                "available_resolutions": res_labels,
+                "original_url": url
+            }
+        except Exception:
+            pass
+
+    if not info:
         # Ultimate Fallback: Official YouTube oEmbed API (Never blocked by YouTube on cloud servers)
         video_id = extract_video_id(url)
         if video_id:
@@ -332,79 +365,71 @@ def download_video_or_audio(
                     break
         except Exception as e:
             last_err = e
-            # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, stream media bytes directly
+            # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, try pytubefix (MWEB client)
             try:
-                stream_opts: Dict[str, Any] = {
-                    'quiet': True,
-                    'skip_download': True,
-                    'socket_timeout': 15
-                }
-                if client_list:
-                    stream_opts['extractor_args'] = {'youtube': {'player_client': client_list}}
-                if js_cfg:
-                    stream_opts['js_runtimes'] = js_cfg
-                if has_youtube_cookies():
-                    stream_opts['cookiefile'] = str(COOKIES_PATH)
-                with yt_dlp.YoutubeDL(stream_opts) as ydl_stream:
-                    stream_info = ydl_stream.extract_info(url, download=False)
-                    valid_fmts = [
-                        f for f in stream_info.get('formats', [])
-                        if f.get('url') and not f.get('format_id', '').startswith('sb') and f.get('ext') != 'mhtml'
-                    ]
-                    stream_url = None
-                    if media_type == 'mp3':
-                        # Pick audio format or any valid format
-                        audio_fmts = [f for f in valid_fmts if f.get('vcodec') == 'none' and f.get('acodec') != 'none']
-                        if audio_fmts:
-                            stream_url = audio_fmts[-1].get('url')
-                    if not stream_url and valid_fmts:
-                        stream_url = valid_fmts[-1].get('url')
-
-                    if stream_url:
-                        title = stream_info.get('title', 'youtube_video')
-                        vid_id = stream_info.get('id', 'video')
-                        clean_title = sanitize_filename(title)[:50]
-                        temp_in = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.part")
-                        
-                        progress_callback({
-                            "job_id": job_id,
-                            "status": "downloading",
-                            "percent": 15,
-                            "message": "고속 다이렉트 스트림 다운로드 중..."
-                        })
-
-                        with requests.get(stream_url, stream=True, timeout=20) as r:
-                            r.raise_for_status()
-                            total_len = int(r.headers.get('content-length', 0))
-                            dl_bytes = 0
-                            with open(temp_in, 'wb') as f:
-                                for chunk in r.iter_content(chunk_size=1024*256):
-                                    if chunk:
-                                        f.write(chunk)
-                                        dl_bytes += len(chunk)
-                                        if total_len > 0:
-                                            p = round(dl_bytes / total_len * 90, 1)
-                                            progress_callback({
-                                                "job_id": job_id,
-                                                "status": "downloading",
-                                                "percent": p,
-                                                "message": f"스트림 다운로드 중... ({p}%)"
-                                            })
-
-                        if media_type == 'mp3':
-                            target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp3")
-                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-vn', '-b:a', '320k', target_file], check=True)
-                            if os.path.exists(temp_in):
-                                os.remove(temp_in)
-                            filename = target_file
+                from pytubefix import YouTube
+                yt = YouTube(url, client='MWEB')
+                
+                progress_callback({
+                    "job_id": job_id,
+                    "status": "downloading",
+                    "percent": 15,
+                    "message": "고속 다이렉트 스트림 다운로드 중..."
+                })
+                
+                stream = None
+                if media_type == 'mp3':
+                    stream = yt.streams.get_audio_only()
+                else:
+                    if quality and "p" in quality:
+                        height = int(quality.replace("p", "").strip())
+                        filtered = [s for s in yt.streams.filter(file_extension='mp4', progressive=True) if s.resolution and int(s.resolution.replace('p','')) <= height]
+                        if filtered:
+                            stream = sorted(filtered, key=lambda s: int(s.resolution.replace('p','')))[-1]
                         else:
-                            target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp4")
-                            subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-c', 'copy', target_file], check=True)
-                            if os.path.exists(temp_in):
-                                os.remove(temp_in)
-                            filename = target_file
-                        info = stream_info
-                        break
+                            stream = yt.streams.get_highest_resolution()
+                    else:
+                        stream = yt.streams.get_highest_resolution()
+                        
+                if stream:
+                    stream_url = stream.url
+                    title = yt.title or 'youtube_video'
+                    vid_id = yt.video_id or 'video'
+                    clean_title = sanitize_filename(title)[:50]
+                    temp_in = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.part")
+                    
+                    with requests.get(stream_url, stream=True, timeout=20) as r:
+                        r.raise_for_status()
+                        total_len = int(r.headers.get('content-length', 0))
+                        dl_bytes = 0
+                        with open(temp_in, 'wb') as f:
+                            for chunk in r.iter_content(chunk_size=1024*256):
+                                if chunk:
+                                    f.write(chunk)
+                                    dl_bytes += len(chunk)
+                                    if total_len > 0:
+                                        p = round(dl_bytes / total_len * 90, 1)
+                                        progress_callback({
+                                            "job_id": job_id,
+                                            "status": "downloading",
+                                            "percent": p,
+                                            "message": f"스트림 다운로드 중... ({p}%)"
+                                        })
+
+                    if media_type == 'mp3':
+                        target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp3")
+                        subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-vn', '-b:a', '320k', target_file], check=True)
+                        if os.path.exists(temp_in):
+                            os.remove(temp_in)
+                        filename = target_file
+                    else:
+                        target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp4")
+                        subprocess.run([str(FFMPEG_PATH), '-y', '-i', temp_in, '-c', 'copy', target_file], check=True)
+                        if os.path.exists(temp_in):
+                            os.remove(temp_in)
+                        filename = target_file
+                    info = {'title': title, 'id': vid_id}
+                    break
             except Exception as stream_e:
                 last_err = stream_e
             continue
