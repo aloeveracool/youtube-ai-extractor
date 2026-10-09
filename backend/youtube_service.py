@@ -380,13 +380,26 @@ def download_video_or_audio(
             # Direct Stream Fallback: If yt-dlp internal downloader encounters issue, try pytubefix (MWEB client)
             try:
                 from pytubefix import YouTube
-                yt = YouTube(url, client='MWEB')
+                
+                def on_progress(stream, chunk, bytes_remaining):
+                    total_size = stream.filesize
+                    bytes_downloaded = total_size - bytes_remaining
+                    if total_size > 0:
+                        p = round((bytes_downloaded / total_size) * 90, 1)
+                        progress_callback({
+                            "job_id": job_id,
+                            "status": "downloading",
+                            "percent": p,
+                            "message": f"대체 엔진 스트림 다운로드 중... ({p}%)"
+                        })
+                
+                yt = YouTube(url, client='MWEB', on_progress_callback=on_progress)
                 
                 progress_callback({
                     "job_id": job_id,
                     "status": "downloading",
                     "percent": 15,
-                    "message": "고속 다이렉트 스트림 다운로드 중..."
+                    "message": "고속 대체 엔진 연결 성공, 다운로드 시작..."
                 })
                 
                 stream = None
@@ -404,33 +417,21 @@ def download_video_or_audio(
                         stream = yt.streams.get_highest_resolution()
                         
                 if stream:
-                    stream_url = stream.url
                     title = yt.title or 'youtube_video'
                     vid_id = yt.video_id or 'video'
                     clean_title = sanitize_filename(title)[:50]
-                    temp_in = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.part")
+                    part_filename = f"{clean_title}_{vid_id}.part"
+                    temp_in = str(DOWNLOADS_DIR / part_filename)
                     
-                    dl_headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Referer': 'https://www.youtube.com/'
-                    }
-                    with requests.get(stream_url, stream=True, timeout=20, headers=dl_headers) as r:
-                        r.raise_for_status()
-                        total_len = int(r.headers.get('content-length', 0))
-                        dl_bytes = 0
-                        with open(temp_in, 'wb') as f:
-                            for chunk in r.iter_content(chunk_size=1024*256):
-                                if chunk:
-                                    f.write(chunk)
-                                    dl_bytes += len(chunk)
-                                    if total_len > 0:
-                                        p = round(dl_bytes / total_len * 90, 1)
-                                        progress_callback({
-                                            "job_id": job_id,
-                                            "status": "downloading",
-                                            "percent": p,
-                                            "message": f"스트림 다운로드 중... ({p}%)"
-                                        })
+                    # Native download using pytubefix (handles throttling/n-sig automatically)
+                    stream.download(output_path=str(DOWNLOADS_DIR), filename=part_filename)
+
+                    progress_callback({
+                        "job_id": job_id,
+                        "status": "processing",
+                        "percent": 95,
+                        "message": "파일 변환 및 최적화 중..."
+                    })
 
                     if media_type == 'mp3':
                         target_file = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.mp3")
