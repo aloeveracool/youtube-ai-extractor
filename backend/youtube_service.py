@@ -398,7 +398,11 @@ def download_video_or_audio(
                     clean_title = sanitize_filename(title)[:50]
                     temp_in = str(DOWNLOADS_DIR / f"{clean_title}_{vid_id}.part")
                     
-                    with requests.get(stream_url, stream=True, timeout=20) as r:
+                    dl_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Referer': 'https://www.youtube.com/'
+                    }
+                    with requests.get(stream_url, stream=True, timeout=20, headers=dl_headers) as r:
                         r.raise_for_status()
                         total_len = int(r.headers.get('content-length', 0))
                         dl_bytes = 0
